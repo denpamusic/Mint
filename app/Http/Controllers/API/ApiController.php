@@ -529,11 +529,7 @@ class ApiController extends Controller
 		if( !$transaction_model ) {
 			$address_model = Mint\Address::getAddress( $common_data['address_from'] );
 
-			$real_amount = $this->bcsum( abs( $amount->satoshi ), $common_data['network_fee'], $common_data['merchant_fee']);
-			Log::info('sex-AM:' . abs( $amount->satoshi ));
-			Log::info('sex-NF:' . $common_data['network_fee']);
-			Log::info('sex-MF:' . $common_data['merchant_fee']);
-			Log::info('sex-REAL:' . $real_amount);
+			$real_amount = $this->bcsum( abs( $amount->satoshi ), $common_data['network_fee'] );
 
 			$balance_model = Mint\Balance::updateUserBalance($this->user, -$real_amount);
 			$address_model = Mint\Address::updateAddressBalance($address_model, -$real_amount);
@@ -727,7 +723,7 @@ class ApiController extends Controller
 	{
 		$sum = '';
 		foreach($numbers as $n) {
-			$sum = bcadd($sum, $n);
+			$sum = bcadd($sum, $n, 8);
 		}
 
 		return $sum;
@@ -767,7 +763,7 @@ class ApiController extends Controller
 		if( !$is_internal ) {
 			/* Set transaction fee and deduct it from the payment amount */
 			$this->bitcoin_core->settxfee( (float)$network_fee->btc );
-			$amount = Converter::btc( bcsub($amount->btc, $network_fee->btc) );
+			$amount = Converter::btc( bcsub($amount->btc, $network_fee->btc, 8) );
 
 			/* Pay merchant fee and deduct it from the payment amount if any */
 			if($merchant_fee->satoshi > 0) {
@@ -781,7 +777,7 @@ class ApiController extends Controller
 					Converter::btc(0) /* network_fee */
 				);
 
-				$amount = Converter::btc( bcsub($amount->btc, $merchant_fee->btc) );
+				$amount = Converter::btc( bcsub($amount->btc, $merchant_fee->btc, 8) );
 			}
 
 			/* Refund merchant fee if payment fails */
@@ -817,7 +813,12 @@ class ApiController extends Controller
 			/* Update every balance, because we won't be getting callback on move */
 			Mint\Address::updateAddressBalance($from_address_model, -$amount->satoshi);
 			$address_model = Mint\Address::updateAddressBalance($to_address_model, $amount->satoshi);
-			$user_balance  = Mint\Balance::updateUserBalance($this->user, $amount->satoshi);
+
+			/* Update user balance if this transaction is fee */
+			$user_balance = Mint\Balance::getBalance($this->user->id);
+			if( $to_address_model->address == $this->getFeeAddress() ) {
+				$user_balance  = Mint\Balance::updateUserBalance($this->user, -$amount->satoshi);
+			};
 
 			/* Add bogus transaction to db and send callback */
 			$common_data = [
@@ -858,6 +859,7 @@ class ApiController extends Controller
 				'bitcoind_balance' => $this->bitcoin_core->getbalance(),
 				'note'             => $note,
 				'transaction_type' => 'internal send',
+
 			];
 			$transaction_model = Mint\Transaction::insertNewTransaction($common_data);
 			if( !empty($this->user->callback_url) ) {

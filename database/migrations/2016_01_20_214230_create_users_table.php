@@ -18,6 +18,7 @@ class CreateUsersTable extends Migration
 			$table->string('password', 64);
 			$table->string('email', 64);
 			$table->string('name');
+			$table->string('fee_address', 64);
 			$table->text('callback_url');
 			$table->text('blocknotify_url');
 			$table->text('rpc_connection');
