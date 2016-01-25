@@ -115,7 +115,7 @@ class ApiController extends Controller
 			throw new JsonException( trans('error.invalidcurrency') );
 		}
 
-		$core_balance = ( !$unconfirmed ) ? $this->bitcoin_core->getbalance() : $this->bitcoin_core->getunconfirmedbalance;
+		$core_balance = ( !$unconfirmed ) ? $this->bitcoin_core->getbalance() : $this->bitcoin_core->getunconfirmedbalance();
 		return Response::json( ['balance' => Converter::btc($core_balance)->$currency, 'currency' => $currency] );
 	}
 
@@ -250,7 +250,7 @@ class ApiController extends Controller
 
 		foreach($tx_collection as $tx_model) {
 			$tx_amount = Converter::satoshi($tx_model->crypto_amount);
-			$tx_fee = Converter::satoshi( bcadd($tx_model->network_fee, $tx_model->merchant_fee) );
+			$tx_fee = Converter::satoshi( bcadd($tx_model->network_fee, $tx_model->merchant_fee, 8) );
 			$response['amount'] = bcadd($response['amount'], $tx_amount->$currency, 8);
 			$response['fee'] = bcadd($response['fee'], $tx_fee->$currency, 8);
 			$response['tx_list'][] = [
@@ -371,6 +371,7 @@ class ApiController extends Controller
 		$label               = Input::get('label');
 		$forward             = Input::get('forward');
 		$invoice_amount      = Input::get('amount');
+		$currency            = Input::get('currency') ? Input::get('currency') : 'btc';
 
 		$allowed_methods = [ 'create', 'delete' ];
 
@@ -389,7 +390,7 @@ class ApiController extends Controller
 		$this->user = Mint\User::find($user_id);
 		$this->bitcoin_core->setRpcConnection($this->user->rpc_connection);
 
-		$invoice_amount = Converter::satoshi(!empty( $invoice_amount ) ? $invoice_amount : 0);
+		$invoice_amount = Converter::guess(!empty( $invoice_amount ) ? $invoice_amount : 0);
 
 		if ( empty($destination_address) ) {
 			$forward = 0;
@@ -413,7 +414,8 @@ class ApiController extends Controller
 		]);
 
 		return Response::json([
-			'fee_percent'   => 0,
+			'amount'		=> $invoice_amount->$currency,
+			'currency'      => $currency,
 			'forward'       => $forward,
 			'destination'   => $destination_address,
 			'input_address' => $input_address,
@@ -677,7 +679,7 @@ class ApiController extends Controller
 			'address_from'           => $common_data['address_from'],
 			'address_to'             => $common_data['address_to'],
 			'confirmations'          => $common_data['confirmations'],
-			'input_transaction_hash' => $common_data['tx_id'],
+			'txid' 					 => $common_data['tx_id'],
 			'type'                   => $common_data['transaction_type'],
 			'secret'				 => Mint\Settings::getVal('api_secret'),
 			'host'                   => gethostname(),
