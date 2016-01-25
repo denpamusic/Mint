@@ -41,7 +41,7 @@ class CreateTransactionsTable extends Migration
         });
 
 		Schema::table('transactions', function (Blueprint $table) {
-			$table->unique(['tx_id', 'address_to', 'address_from', 'transaction_type'], 'tx_uniq');
+			$table->unique(['tx_id', 'address_to', 'address_from', 'tx_time', 'transaction_type'], 'tx_uniq');
 			$table->foreign('user_id')->references('id')->on('users');
 		});
     }

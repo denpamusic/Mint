@@ -116,7 +116,7 @@ class ApiController extends Controller
 		}
 
 		$core_balance = ( !$unconfirmed ) ? $this->bitcoin_core->getbalance() : $this->bitcoin_core->getunconfirmedbalance();
-		return Response::json( ['balance' => Converter::btc($core_balance)->$currency, 'currency' => $currency] );
+		return Response::json( ['balance' => Converter::btc($core_balance)->$currency, 'currency' => $currency, 'is_unconfirmed' => (bool)$unconfirmed] );
 	}
 
     /**
@@ -823,49 +823,29 @@ class ApiController extends Controller
 			};
 
 			/* Add bogus transaction to db and send callback */
-			$common_data = [
-				'tx_id'            => '0000000000000000000000000000000000000000000000000000000000000000',
-				'user_id'          => $this->user->id,
-				'address_from'     => $from_address_model->address,
-				'address_to'       => $to_address_model->address,
-				'crypto_amount'    => $amount->satoshi,
-				'confirmations'    => Mint\Settings::getVal('min_confirmations'),
-				'network_fee'      => 0,
-				'merchant_fee'     => 0,
-				'tx_time'          => time(),
-				'tx_timereceived'  => time(),
-				'user_balance'     => $user_balance->balance,
-				'address_balance'  => $address_model->balance,
-				'bitcoind_balance' => $this->bitcoin_core->getbalance(),
-				'note'             => $note,
-				'transaction_type' => 'internal receive',
-			];
-			$transaction_model = Mint\Transaction::insertNewTransaction($common_data);
-			if( !empty($this->user->callback_url) ) {
-				$this->fetchUrl($this->user->callback_url, $common_data, $transaction_model);
-			}
+			foreach(['send', 'receive'] as $type) {
+				$common_data = [
+					'tx_id'            => '0000000000000000000000000000000000000000000000000000000000000000',
+					'user_id'          => $this->user->id,
+					'address_from'     => $from_address_model->address,
+					'address_to'       => $to_address_model->address,
+					'crypto_amount'    => ($type == 'send') ? -$amount->satoshi : $amount->satoshi,
+					'confirmations'    => Mint\Settings::getVal('min_confirmations'),
+					'network_fee'      => 0,
+					'merchant_fee'     => 0,
+					'tx_time'          => time(),
+					'tx_timereceived'  => time(),
+					'user_balance'     => $user_balance->balance,
+					'address_balance'  => $address_model->balance,
+					'bitcoind_balance' => $this->bitcoin_core->getbalance(),
+					'note'             => $note,
+					'transaction_type' => 'internal-' . $type,
+				];
 
-			$common_data = [
-				'tx_id'            => '0000000000000000000000000000000000000000000000000000000000000000',
-				'user_id'          => $this->user->id,
-				'address_from'     => $from_address_model->address,
-				'address_to'       => $to_address_model->address,
-				'crypto_amount'    => -$amount->satoshi,
-				'confirmations'    => Mint\Settings::getVal('min_confirmations'),
-				'network_fee'      => 0,
-				'merchant_fee'     => 0,
-				'tx_time'          => time(),
-				'tx_timereceived'  => time(),
-				'user_balance'     => $user_balance->balance,
-				'address_balance'  => $address_model->balance,
-				'bitcoind_balance' => $this->bitcoin_core->getbalance(),
-				'note'             => $note,
-				'transaction_type' => 'internal send',
-
-			];
-			$transaction_model = Mint\Transaction::insertNewTransaction($common_data);
-			if( !empty($this->user->callback_url) ) {
-				$this->fetchUrl($this->user->callback_url, $common_data, $transaction_model);
+				$transaction_model = Mint\Transaction::insertNewTransaction($common_data);
+				if( !empty($this->user->callback_url) ) {
+					$this->fetchUrl($this->user->callback_url, $common_data, $transaction_model);
+				}
 			}
 		}
 
