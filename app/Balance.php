@@ -23,9 +23,9 @@ class Balance extends Model
 		$balance = Balance::getBalance($user_model->id);
 
 		if($amount > 0) {
-			$balance->total_received = bcadd($balance->balance, $amount);
+			$balance->total_received = bcadd($balance->balance, $amount, 8);
 		}
-		$balance->balance = bcadd($balance->balance, $amount);
+		$balance->balance = bcadd($balance->balance, $amount, 8);
 		$balance->num_transactions = bcadd($balance->num_transactions, 1);
 		$balance->save();
 		return $balance;

@@ -26,7 +26,7 @@ class Invoice extends Model
 	public static function updateReceived($invoice_model, $amount) {
 		$invoice_model->received_amount = bcadd($invoice_model->received_amount, $amount);
 
-		if ($invoice_model->invoice_amount <= $invoice_model->received_amount) {
+		if ($invoice_model->invoice_amount == $invoice_model->received_amount) {
 			$invoice_model->received = 1;
 		}
 		$invoice_model->save();

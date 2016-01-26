@@ -334,13 +334,15 @@ class ApiController extends Controller
 
 		$amount = Converter::guess($amount);
 		$network_fee = Converter::btc($fee);
+		$merchant_fee = Converter::btc( Mint\Settings::getVal('merchant_fee') );
 
 		$response = $this->sendFrom(
 			$from_address,
 			$to_address,
 			$note,
 			$amount,
-			$network_fee
+			$network_fee,
+			$merchant_fee
 		);
 
 		return Response::json([
@@ -447,6 +449,7 @@ class ApiController extends Controller
 
 		$tx_info = $this->bitcoin_core->gettransaction($tx_id);
 
+
 		$confirms      = $tx_info['confirmations'];
 		$block_hash    = isset( $tx_info['blockhash'] ) ? $tx_info['blockhash'] : null;
 		$block_index   = isset( $tx_info['blockindex'] ) ? $tx_info['blockindex'] : null;
@@ -454,7 +457,8 @@ class ApiController extends Controller
 		$time          = $tx_info['time'];
 		$time_received = $tx_info['timereceived'];
 		$network_fee   = isset($tx_info['fee']) ? abs( Converter::btc($tx_info['fee'])->satoshi ) : null;
-		$merchant_fee  = Converter::btc( Mint\Settings::getVal('merchant_fee') )->satoshi;
+		$merchant_fee  = Mint\Settings::getVal('merchant_fee');
+		$merchant_fee  = Converter::btc($merchant_fee)->satoshi;
 
 
 		$transaction_details = $tx_info["details"];
@@ -585,7 +589,9 @@ class ApiController extends Controller
 						$invoice_model->destination_address,
 						'invoice forward',
 						$amount,
-						$network_fee
+						$network_fee,
+						$merchant_fee,
+						'move'
 					);
 				}
 			}
@@ -747,106 +753,121 @@ class ApiController extends Controller
      *
      * @return mixed
      */
-	private function sendFrom($from_address, $to_address, $note = '',  Converter $amount, Converter $network_fee)
+	private function sendFrom($from_address, $to_address, $note = '',  Converter $amount, Converter $network_fee, Converter $merchant_fee, $method = 'sendfrom')
 	{
 		$from_address_model = Mint\Address::getAddress($from_address);
-		$is_internal = $this->isUserAddress($to_address);
 
-		$merchant_fee = Converter::btc( Mint\Settings::getVal('merchant_fee') );
+		if($method == 'move') {
+			if( !$this->isUserAddress($to_address) ) {
+				$method = 'sendfrom';
+			}
+		}
 
-		/* Calculate real amount to be deducted from users account. */
-		$full_amount = (!$is_internal) ? Converter::satoshi( $this->bcsum($amount->satoshi, $network_fee->satoshi, $merchant_fee->satoshi) ) : $amount;
-
-		/* If it's users address check balance without fee */
-		if( $from_address_model->balance < $full_amount->satoshi) {
+		/* Check balance */
+		if( $from_address_model->balance < $amount->satoshi) {
 			throw new JsonException( trans('error.nofunds') );
 		}
 
-		if( !$is_internal ) {
-			/* Set transaction fee and deduct it from the payment amount */
-			$this->bitcoin_core->settxfee( (float)$network_fee->btc );
-			$amount = Converter::btc( bcsub($amount->btc, $network_fee->btc, 8) );
+		/* Pay merchant fee  if any and subtract it from the payment amount */
+		if($merchant_fee->satoshi > 0) {
+			$fee_address = $this->getFeeAddress();
 
-			/* Pay merchant fee and deduct it from the payment amount if any */
-			if($merchant_fee->satoshi > 0) {
-				$fee_address = $this->getFeeAddress();
+			$this->sendFrom(
+				$from_address_model->address,
+				$fee_address,
+				'merchant fee',
+				$merchant_fee,
+				Converter::btc(0), /* network_fee  */
+				Converter::btc(0), /* merchant_fee */
+				'move'             /* method       */
+			);
 
-				$this->sendFrom(
-					$from_address_model->address,
-					$fee_address,
-					'merchant fee',
-					$merchant_fee,
-					Converter::btc(0) /* network_fee */
-				);
+			$amount = Converter::btc( bcsub($amount->btc, $merchant_fee->btc, 8) );
+		}
 
-				$amount = Converter::btc( bcsub($amount->btc, $merchant_fee->btc, 8) );
-			}
+		try {
+			if($method == 'move') {
+				$to_address_model = Mint\Address::getAddress($to_address);
 
-			/* Refund merchant fee if payment fails */
-			try {
-				$tx_id = $this->bitcoin_core->sendfrom($from_address, $to_address, (float)$amount->btc, /* confirmations */ 1, $note);
-			} catch(JsonException $e) {
-				$this->sendFrom(
-					$fee_address,
-					$from_address_model->address,
-					'merchant fee refund',
-					$merchant_fee,
-					Converter::btc(0) /* network_fee */
-				);
-
-				throw new JsonException( $e->getMessage() );
-			}
-
-			$tx_info = $this->bitcoin_core->gettransaction($tx_id);
-			$tx_fee = Converter::btc( abs( $tx_info['fee'] ) );
-		} else {
-			/* Internal transaction. No txid returned and no fee required. */
-			$tx_id = 0;
-			$tx_fee = Converter::btc(0);
-			$merchant_fee = Converter::btc(0);
-			$to_address_model = Mint\Address::getAddress($to_address);
-
-			/* Move currency between user accounts. */
-			$response = $this->bitcoin_core->move($from_address_model->address, $to_address_model->address, (float)$amount->btc, /* unused int */ 1, $note);
-			if( !$response ) {
-				throw new JsonException( trans('error.movefailed') );
-			}
-
-			/* Update every balance, because we won't be getting callback on move */
-			Mint\Address::updateAddressBalance($from_address_model, -$amount->satoshi);
-			$address_model = Mint\Address::updateAddressBalance($to_address_model, $amount->satoshi);
-
-			/* Update user balance if this transaction is fee */
-			$user_balance = Mint\Balance::getBalance($this->user->id);
-			if( $to_address_model->address == $this->getFeeAddress() ) {
-				$user_balance  = Mint\Balance::updateUserBalance($this->user, -$amount->satoshi);
-			};
-
-			/* Add bogus transaction to db and send callback */
-			foreach(['send', 'receive'] as $type) {
-				$common_data = [
-					'tx_id'            => '0000000000000000000000000000000000000000000000000000000000000000',
-					'user_id'          => $this->user->id,
-					'address_from'     => $from_address_model->address,
-					'address_to'       => $to_address_model->address,
-					'crypto_amount'    => ($type == 'send') ? -$amount->satoshi : $amount->satoshi,
-					'confirmations'    => Mint\Settings::getVal('min_confirmations'),
-					'network_fee'      => 0,
-					'merchant_fee'     => 0,
-					'tx_time'          => time(),
-					'tx_timereceived'  => time(),
-					'user_balance'     => $user_balance->balance,
-					'address_balance'  => $address_model->balance,
-					'bitcoind_balance' => $this->bitcoin_core->getbalance(),
-					'note'             => $note,
-					'transaction_type' => 'internal-' . $type,
-				];
-
-				$transaction_model = Mint\Transaction::insertNewTransaction($common_data);
-				if( !empty($this->user->callback_url) ) {
-					$this->fetchUrl($this->user->callback_url, $common_data, $transaction_model);
+				/* Move currency between user accounts. */
+				$response = $this->bitcoin_core->move($from_address_model->address, $to_address_model->address, (float)$amount->btc, /* unused int */ 1, $note);
+				if( !$response ) {
+					throw new JsonException( trans('error.movefailed') );
 				}
+
+				/* Internal transaction. No txid returned and no network fee required. */
+				$tx_id  = 0;
+				$tx_fee = Converter::btc(0);
+
+				$send_amount = Converter::btc( $this->bcsum($amount->btc, $merchant_fee->btc) );
+
+				/* Update every balance, because we won't be getting callback on move */
+				Mint\Address::updateAddressBalance($from_address_model, -$send_amount->satoshi);
+				$address_model = Mint\Address::updateAddressBalance($to_address_model, $amount->satoshi);
+
+				switch(true) {
+					case $to_address_model->address == $this->getFeeAddress():
+						/* Update user balance if this transaction is fee */
+						$user_balance = Mint\Balance::updateUserBalance($this->user, -$send_amount->satoshi);
+						$types = ['send'];
+						break;
+					case $from_address_model->address == $this->getFeeAddress():
+						/* Update user balance if this transaction is fee */
+						$user_balance = Mint\Balance::updateUserBalance($this->user, $amount->satoshi);
+						$types = ['receive'];
+						break;
+					default:
+						$user_balance = Mint\Balance::getBalance($this->user->id);
+						$types = ['send', 'receive'];
+						break;
+				}
+
+				foreach($types as $type) {
+					$common_data = [
+						'tx_id'            => '0000000000000000000000000000000000000000000000000000000000000000',
+						'user_id'          => $this->user->id,
+						'address_from'     => $from_address_model->address,
+						'address_to'       => $to_address_model->address,
+						'crypto_amount'    => ($type == 'send') ? -$amount->satoshi : $amount->satoshi,
+						'confirmations'    => Mint\Settings::getVal('min_confirmations'),
+						'network_fee'      => 0,
+						'merchant_fee'     => $merchant_fee->satoshi,
+						'tx_time'          => time(),
+						'tx_timereceived'  => time(),
+						'user_balance'     => $user_balance->balance,
+						'address_balance'  => $address_model->balance,
+						'bitcoind_balance' => $this->bitcoin_core->getbalance(),
+						'note'             => $note,
+						'transaction_type' => 'internal-' . $type,
+					];
+
+					$transaction_model = Mint\Transaction::insertNewTransaction($common_data);
+					if( !empty($this->user->callback_url) ) {
+						$this->fetchUrl($this->user->callback_url, $common_data, $transaction_model);
+					}
+				}
+			} else {
+				/* Set transaction fee and deduct it from the payment amount */
+				$this->bitcoin_core->settxfee( (float)$network_fee->btc );
+				$total_amount = Converter::btc( bcsub($amount->btc, $network_fee->btc, 8) );
+
+				$tx_id = $this->bitcoin_core->sendfrom($from_address, $to_address, (float)$amount->btc, /* confirmations */ 1, $note);
+				$tx_info = $this->bitcoin_core->gettransaction($tx_id);
+				$tx_fee = Converter::btc( abs( $tx_info['fee'] ) );
 			}
+		} catch(JsonException $e) {
+			/* Refund merchant fee if payment fails */
+			$this->sendFrom(
+				$fee_address,
+				$from_address_model->address,
+				'merchant fee refund',
+				$merchant_fee,
+				Converter::btc(0), /* network_fee  */
+				Converter::btc(0), /* merchant_fee */
+				'move'	       	   /* method       */
+			);
+
+			throw new JsonException( $e->getMessage() );
 		}
 
 		return [
