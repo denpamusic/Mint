@@ -34,9 +34,9 @@ class Transaction extends Model
 
 	public static function updateTxConfirmation($transactionModel, $data)
 	{
-		$transactionModel->confirmations = $data['confirmations'];
-		$transactionModel->block_hash = $data['block_hash'];
-		$transactionModel->block_index = $data['block_index'];
+		$transactionModel->confirmations = isset($data['confirmations']) ? $data['confirmations'] : 0;
+		$transactionModel->block_hash = isset($data['block_hash']) ? $data['block_hash'] : null;
+		$transactionModel->block_index = isset($data['block_index']) ? $data['block_hash'] : null;
 		$transactionModel->save();
 		return $transactionModel;
 	}

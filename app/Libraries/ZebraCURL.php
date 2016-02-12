@@ -33,7 +33,7 @@ use stdClass;
  *  For more resources visit {@link http://stefangabos.ro/}
  *
  *  @author     Stefan Gabos <contact@stefangabos.ro>
- *  @version    1.3.2 (last revision: January 12, 2016)
+ *  @version    1.3.3 (last revision: February 11, 2016)
  *  @copyright  (c) 2013 - 2016 Stefan Gabos
  *  @license    http://www.gnu.org/licenses/lgpl-3.0.txt GNU LESSER GENERAL PUBLIC LICENSE
  *  @package    Zebra_cURL
@@ -45,11 +45,11 @@ class ZebraCURL {
      *  The number of seconds to wait between processing batches of requests.
      *
      *  If the value of this property is greater than 0, the library will process as many requests as defined by the
-     *  {@link $threads threads} property, and then wait for {@link $pause_interval pause_interval} seconds before
-     *  processing the next batch of requests.
+     *  {@link threads} property, and then wait for {@link pause_interval pause_interval} seconds before processing the
+     *  next batch of requests.
      *
-     *  Default is 0 (the library will keep as many parallel threads as defined by {@link $threads threads} <b>running
-     *  at all times</b>, until there are no more requests to process).
+     *  Default is 0 (the library will keep as many parallel threads as defined by {@link threads} <b>running at all
+     *  times</b>, until there are no more requests to process).
      *
      *  @since 1.3.0
      *
@@ -65,14 +65,14 @@ class ZebraCURL {
      *  $curl->threads = 30;
      *  </code>
      *
-     *  Note that, unless {@link $pause_interval pause_interval} is set to a value greater than 0, the library will process
-     *  a constant number of requests, <b>at all times</b>; it's doing this by processing a new request as soon as another
-     *  one finishes, instead of waiting for each batch to finish, and so on, until there are no more requests to process,
+     *  Note that, unless {@link pause_interval} is set to a value greater than 0, the library will process a constant
+     *  number of requests, <b>at all times</b>; it's doing this by processing a new request as soon as another one
+     *  finishes, instead of waiting for each batch to finish, and so on, until there are no more requests to process,
      *  and thus greatly decreasing execution time.
      *
-     *  If {@link $pause_interval pause_interval} is set to a value greater than 0, the library will process as many
-     *  requests as set by the {@link $threads threads} property and then will wait for {@link $pause_interval pause_interval}
-     *  seconds before processing the next batch of requests.
+     *  If {@link pause_interval} is set to a value greater than 0, the library will process as many requests as set by
+     *  the {@link threads} property and then will wait for {@link pause_interval} seconds before processing the next
+     *  batch of requests.
      *
      *  Default is 10.
      *
@@ -81,8 +81,8 @@ class ZebraCURL {
     public $threads;
 
     /**
-     * Used by the {@link _process()} method to determine whether to run processed requests' bodies through PHP's
-     * htmlentities function.
+     * Used by the {@link _process} method to determine whether to run processed requests' bodies through PHP's
+     * {@link http://php.net/manual/en/function.htmlentities.php htmlentities} function.
      *
      * Default is TRUE. Can be changed by instantiating the library with the FALSE argument.
      *
@@ -214,6 +214,15 @@ class ZebraCURL {
     );
 
     /**
+     *  Stores the result of a call to the {@link scrap} method
+     *
+     *  @var mixed
+     *
+     *  @access private
+     */
+    private $_scrap_result;
+
+    /**
      *  Constructor of the class.
      *
      *  Below is the list of default options set by the library when instantiated:
@@ -252,10 +261,11 @@ class ZebraCURL {
      *
      *  -   <b>CURLOPT_SSL_VERIFYHOST</b>   -   <b>2</b>; check the existence of a common name in the SSL peer certificate
      *                                          (for when connecting to HTTPS), and that it matches with the provided
-     *                                          hostname; see also {@link ssl()};
+     *                                          hostname; see also the {@link ssl} method;
      *
      *  -   <b>CURLOPT_SSL_VERIFYPEER</b>   -   <b>FALSE</b>; stop cURL from verifying the peer's certificate (which
-     *                                          would most likely cause the request to fail). see also {@link ssl()};
+     *                                          would most likely cause the request to fail). see also the {@link ssl}
+     *                                          method;
      *
      *  -   <b>CURLOPT_TIMEOUT</b>          -   <b>10</b>; the maximum number of seconds to allow cURL functions to
      *                                          execute;
@@ -264,9 +274,9 @@ class ZebraCURL {
      *                                          Vista, 7 or 8, with other extra strings). Some web services will not
      *                                          respond unless a valid user-agent string is provided
      *
-     *  @param  boolean $htmlentities           Instructs the script whether the response body returned by the {@link get()}
-     *                                          and {@link post()} methods should be run through PHP's
-     *                                          {@link http://php.net/manual/en/function.htmlentities.php htmlentities()}
+     *  @param  boolean $htmlentities           Instructs the script whether the response body returned by the {@link get}
+     *                                          and {@link post} methods should be run through PHP's
+     *                                          {@link http://php.net/manual/en/function.htmlentities.php htmlentities}
      *                                          function.
      *
      *  @return void
@@ -399,15 +409,16 @@ class ZebraCURL {
      *
      *                                  Setting this to FALSE will disable caching.
      *
-     *                                  <i>Unless set to FALSE, this must point to a writable directory or an error will
-     *                                  be triggered!</i>
+     *                                  <i>If set to a non-existing path, the library will try to create the folder
+     *                                  and will trigger an error if, for whatever reasons, it is unable to do so. If the
+     *                                  folder can be created, its permissions will be set to the value of $chmod</i>
      *
      *  @param  integer     $lifetime   (Optional) The number of seconds after which cache will be considered expired.
      *
      *                                  Default is 3600 (one hour).
      *
      *  @param  boolean     $compress   (Optional) If set to TRUE, cache files will be
-     *                                  {@link http://php.net/manual/ro/function.gzcompress.php gzcompress}-ed  so that
+     *                                  {@link http://php.net/manual/en/function.gzcompress.php gzcompress}-ed  so that
      *                                  they occupy less disk space.
      *
      *                                  Default is TRUE.
@@ -429,13 +440,16 @@ class ZebraCURL {
      *
      *                                  Default is "0755" (without the quotes).
      *
-     *  @return null
+     *  @return void
      */
     public function cache($path, $lifetime = 3600, $compress = true, $chmod = 0755)
     {
 
         // if caching is not explicitly disabled
-        if ($path != false)
+        if ($path != false) {
+
+            // if path doesn't exist, attempt to create it
+            if (!is_dir($path)) @mkdir($path, $chmod, true);
 
             // save cache-related properties
             $this->cache = array(
@@ -446,7 +460,7 @@ class ZebraCURL {
             );
 
         // if caching is explicitly disabled, set this property to FALSE
-        else $this->cache = false;
+        } else $this->cache = false;
 
     }
 
@@ -462,15 +476,9 @@ class ZebraCURL {
      *                              If file does not exist the library will attempt to create it, and if it is unable to
      *                              create it will trigger an error.
      *
-     *  @param  boolean     $keep   (Optional)  By default, the file to save to / retrieve cookies from is deleted when
-     *                              script execution finishes. If you want the file to be preserved, set this argument to
-     *                              TRUE.
-     *
-     *                              Default is FALSE.
-     *
-     *  @return null
+     *  @return void
      */
-    public function cookies($path, $keep = false)
+    public function cookies($path)
     {
         // file does not exist
         if (!is_file($path)) {
@@ -488,9 +496,189 @@ class ZebraCURL {
 
         // set these options
         $this->option(array(
-            CURLOPT_COOKIEJAR   =>  $path,
-            CURLOPT_COOKIEFILE  =>  $path,
+            CURLOPT_COOKIEJAR   =>  $path,  //  for writing
+            CURLOPT_COOKIEFILE  =>  $path,  //  for reading
         ));
+
+    }
+
+    /**
+     *  Performs an HTTP <b>DELETE</b> request to one or more URLs with the POST data as specified by the <i>$urls</i> argument,
+     *  and executes the callback function specified by the <i>$callback</i> argument for each and every request, as soon
+     *  as a request finishes.
+     *
+     *  This method will automatically set the following options:
+     *
+     *  - <b>CURLINFO_HEADER_OUT</b> - TRUE
+     *  - <b>CURLOPT_CUSTOMREQUEST</b> - "DELETE"
+     *  - <b>CURLOPT_HEADER</b> - TRUE
+     *  - <b>CURLOPT_NOBODY</b> - FALSE
+     *  - <b>CURLOPT_POST</b> - FALSE
+     *  - <b>CURLOPT_POSTFIELDS</b> - the POST data
+     *
+     *  ...and will unset the following options:
+     *
+     *  - <b>CURLOPT_BINARYTRANSFER</b>
+     *  - <b>CURLOPT_HTTPGET</b> - TRUE
+     *  - <b>CURLOPT_FILE</b>
+     *
+     *  Multiple requests are processed asynchronously, in parallel, and the callback function is called for each and every
+     *  request, as soon as a request finishes. The number of parallel requests to be constantly processed, at all times,
+     *  can be set through the {@link threads} property. See also the {@link pause_interval} property.
+     *
+     *  <i>Note that requests may not finish in the same order as initiated!</i>
+     *
+     *  <code>
+     *  // the callback function to be executed for each and every
+     *  // request, as soon as a request finishes
+     *  // the callback function receives as argument an object with 4 properties
+     *  // (info, header, body and response)
+     *  function mycallback($result) {
+     *
+     *      // everything went well at cURL level
+     *      if ($result->response[1] == CURLE_OK) {
+     *
+     *          // if server responded with code 200 (meaning that everything went well)
+     *          // see http://httpstatus.es/ for a list of possible response codes
+     *          if ($result->info['http_code'] == 200) {
+     *
+     *              // see all the returned data
+     *              print_r('<pre>');
+     *              print_r($result);
+     *
+     *          // show the server's response code
+     *          } else die('Server responded with code ' . $result->info['http_code']);
+     *
+     *      // something went wrong
+     *      // ($result still contains all data that could be gathered)
+     *      } else die('cURL responded with: ' . $result->response[0]);
+     *
+     *  }
+     *
+     *  // include the Zebra_cURL library
+     *  require 'path/to/Zebra_cURL';
+     *
+     *  // instantiate the Zebra_cURL object
+     *  $curl = new Zebra_cURL();
+     *
+     *  // do a PUT and execute the "mycallback" function for each
+     *  // request, as soon as it finishes
+     *  $curl->delete(array(
+     *      'http://www.somewebsite.com'  =>  array(
+     *          'data_1'  =>  'value 1',
+     *          'data_2'  =>  'value 2',
+     *      ),
+     *  ), 'mycallback');
+     *  </code>
+     *
+     *  @param  mixed   $urls       An associative array in the form of <i>url => delete-data</i>, where "delete-data" is an
+     *                              associative array in the form of <i>name => value</i>.
+     *
+     *                              "delete-data" can also be an arbitrary string - useful if you want to send raw data (like a JSON)
+     *
+     *                              The <i>Content-Type</i> header will be set to <b>multipart/form-data.</b>
+     *
+     *  @param  mixed   $callback   (Optional) Callback function to be called as soon as a request finishes.
+     *
+     *                              May be given as a string representing a name of an existing function, as an anonymous
+     *                              function created on the fly via {@link http://www.php.net/manual/en/function.create-function.php
+     *                              create_function} or via a {@link http://www.php.net/manual/en/function.create-function.php
+     *                              closure}.
+     *
+     *                              The callback function receives as first argument <b>an object</b> with <b>4 properties</b>
+     *                              as described below, while any further arguments passed to the {@link delete} method
+     *                              will be passed as extra arguments to the callback function:
+     *
+     *                              -   <b>info</b>     -   an associative array containing information about the request
+     *                                                      that just finished, as returned by PHP's
+     *                                                      {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo()}
+     *                                                      function;
+     *
+     *                              -   <b>headers</b>  -   an associative array with 2 items:
+     *
+     *                                                      <b>- last_request</b> an array with a single entry containing
+     *                                                      the request headers generated by <i>the last request</i>; so,
+     *                                                      remember, if there are redirects involved, there will be more
+     *                                                      requests made, but only information from the last one will be
+     *                                                      available; if explicitly disabled via the {@link option}
+     *                                                      method by setting <b>CURLINFO_HEADER_OUT</b> to 0 or FALSE,
+     *                                                      this will be an empty string;
+     *
+     *                                                      <b>- responses</b> an array with one or more entries (if there
+     *                                                      are redirects involved) with the response headers of all the
+     *                                                      requests made; if explicitly disabled via the {@link option}
+     *                                                      method by setting <b>CURLOPT_HEADER</b> to 0 or FALSE, this
+     *                                                      will be an empty string;
+     *
+     *                                                      <i>Unless disabled, each entry in the headers' array is an
+     *                                                      associative array in the form of property => value</i>
+     *
+     *                              -   <b>body</b> -       the response of the request (the content of the page at the
+     *                                                      URL).
+     *
+     *                                                      Unless disabled via the {@link __construct() constructor}, all
+     *                                                      applicable characters will be converted to HTML entities via
+     *                                                      PHP's {@link http://php.net/manual/en/function.htmlentities.php htmlentities}
+     *                                                      function, so remember to use PHP's {@link http://www.php.net/manual/en/function.html-entity-decode.php html_entity_decode}
+     *                                                      function to do reverse this, if it's the case;
+     *
+     *                                                      If "body" is explicitly disabled via the {@link option}
+     *                                                      method by setting <b>CURLOPT_NOBODY</b> to 0 or FALSE, this
+     *                                                      will be an empty string;
+     *
+     *                              -   <b>response</b> -   the response given by the cURL library as an array with 2
+     *                                                      entries: the first entry is the textual representation of the
+     *                                                      result's code, while second is the result's code itself; if
+     *                                                      the request was successful, these values will be
+     *                                                      <i>array(CURLE_OK, 0);</i> consult
+     *                                                      {@link http://www.php.net/manual/en/function.curl-errno.php#103128 this list}
+     *                                                      to see the possible values of this property;
+     *
+     *  <samp>If the callback function returns FALSE  while {@link cache} is enabled, the library will not cache the
+     *  respective request, making it easy to retry failed requests without having to clear all cache.</samp>
+     *
+     *  @since 1.3.3
+     *
+     *  @return void
+     */
+    public function delete($urls, $callback = '')
+    {
+
+        // if "urls" argument is not an array, trigger an error
+        if (!is_array($urls)) trigger_error('First argument to "delete" method must be an array!', E_USER_ERROR);
+
+        // iterate through the list of URLs to process
+        foreach ((array)$urls as $url => $values)
+
+            // add each URL and associated properties to the "_requests" property
+            $this->_requests[] = array(
+                'url'               =>  $url,
+                'options'           =>  array(
+                    CURLINFO_HEADER_OUT     =>  1,
+                    CURLOPT_CUSTOMREQUEST   =>  'DELETE',
+                    CURLOPT_HEADER          =>  1,
+                    CURLOPT_NOBODY          =>  0,
+                    CURLOPT_POST            =>  0,
+                    CURLOPT_POSTFIELDS      =>  is_array($values) ? http_build_query($values, NULL, '&') : $values,
+                    CURLOPT_BINARYTRANSFER  =>  null,
+                    CURLOPT_HTTPGET         =>  null,
+                    CURLOPT_FILE            =>  null,
+                ),
+                'callback'          =>  $callback,
+
+                // additional arguments to pass to the callback function, if any
+                'arguments'         =>  array_slice(func_get_args(), 2),
+
+            );
+
+        // if we're just queuing requests for now, do not execute the next lines
+        if ($this->_queue) return;
+
+        // if we have to pause between batches of requests, process them sequentially, in batches
+        if ($this->pause_interval > 0) $this->_process_paused();
+
+        // if we don't have to pause between batches of requests, process them all at once
+        else $this->_process();
 
     }
 
@@ -511,6 +699,7 @@ class ZebraCURL {
      *
      *  ...and will unset the following options:
      *
+     *  - <b>CURLOPT_CUSTOMREQUEST</b>
      *  - <b>CURLOPT_HTTPGET</b>
      *  - <b>CURLOPT_NOBODY</b>
      *  - <b>CURLOPT_POST</b>
@@ -521,7 +710,7 @@ class ZebraCURL {
      *
      *  Multiple requests are processed asynchronously, in parallel, and the callback function is called for each and every
      *  request, as soon as a request finishes. The number of parallel requests to be constantly processed, at all times,
-     *  can be set through the {@link threads} property. See also the {@link $pause_interval pause_interval} property.
+     *  can be set through the {@link threads} property. See also the {@link pause_interval} property.
      *
      *  <i>Note that requests may not finish in the same order as initiated!</i>
      *
@@ -576,8 +765,8 @@ class ZebraCURL {
      *  @param  mixed   $callback           (Optional) Callback function to be called as soon as a request finishes.
      *
      *                                      May be given as a string representing a name of an existing function, as an
-     *                                      anonymous function created on the fly via {@link http://www.php.net/manual/ro/function.create-function.php
-     *                                      create_function} or, as of PHP 5.3.0, via a {@link http://www.php.net/manual/ro/function.create-function.php
+     *                                      anonymous function created on the fly via {@link http://www.php.net/manual/en/function.create-function.php
+     *                                      create_function} or via a {@link http://www.php.net/manual/en/function.create-function.php
      *                                      closure}.
      *
      *                                      The callback function receives as first argument <b>an object</b> with <b>4
@@ -586,7 +775,7 @@ class ZebraCURL {
      *
      *                                      -   <b>info</b>     -   an associative array containing information about the
      *                                                              request that just finished, as returned by PHP's
-     *                                                              {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo()}
+     *                                                              {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo}
      *                                                              function; there's also an extra entry called <i>original_url</i>
      *                                                              because, as curl_getinfo() only returns information
      *                                                              about the <b>last</b> request, the original URL may
@@ -599,7 +788,7 @@ class ZebraCURL {
      *                                                              last request</i>; so, remember, if there are redirects
      *                                                              involved, there will be more requests made, but only
      *                                                              information from the last one will be available; if
-     *                                                              explicitly disabled via the {@link option()} method
+     *                                                              explicitly disabled via the {@link option} method
      *                                                              by setting <b>CURLINFO_HEADER_OUT</b> to 0 or FALSE,
      *                                                              this will be an empty string;
      *
@@ -620,7 +809,10 @@ class ZebraCURL {
      *                                                              {@link http://www.php.net/manual/en/function.curl-errno.php#103128 this list}
      *                                                              to see the possible values of this property;
      *
-     *  @return null
+     *  <samp>If the callback function returns FALSE  while {@link cache} is enabled, the library will not cache the
+     *  respective request, making it easy to retry failed requests without having to clear all cache.</samp>
+     *
+     *  @return void
      */
     public function download($urls, $path, $callback = '')
     {
@@ -628,21 +820,18 @@ class ZebraCURL {
         // if destination path is not a directory or is not writable, trigger an error message
         if (!is_dir($path) || !is_writable($path)) trigger_error('"' . $path . '" is not a valid path or is not writable', E_USER_ERROR);
 
-        // prior to PHP 5.3, func_get_args() cannot be used as a function parameter, so we need this intermediary step
-        $arguments = func_get_args();
-
         // iterate through the list of URLs to process
         foreach ((array)$urls as $url)
 
             // add each URL and associated properties to the "_requests" property
             $this->_requests[] = array(
-                'type'              =>  'download',
                 'url'               =>  $url,
                 'path'              =>  rtrim($path, '/\\') . '/',
                 'options'           =>  array(
                     CURLINFO_HEADER_OUT     =>  1,
                     CURLOPT_BINARYTRANSFER  =>  1,
                     CURLOPT_HEADER          =>  0,
+                    CURLOPT_CUSTOMREQUEST   =>  null,
                     CURLOPT_HTTPGET         =>  null,
                     CURLOPT_NOBODY          =>  null,
                     CURLOPT_POST            =>  null,
@@ -651,7 +840,7 @@ class ZebraCURL {
                 'callback'          =>  $callback,
 
                 // additional arguments to pass to the callback function, if any
-                'arguments'         =>  array_slice($arguments, 3),
+                'arguments'         =>  array_slice(func_get_args(), 3),
 
             );
 
@@ -667,7 +856,7 @@ class ZebraCURL {
     }
 
     /**
-     *  Works exactly like the {@link download()} method only that downloads are made from an FTP server.
+     *  Works exactly like the {@link download} method only that downloads are made from an FTP server.
      *
      *  Downloads from an FTP server to which the connection is made using the given <i>$username</i> and <i>$password</i>
      *  arguments, one or more files specified by the <i>$urls</i> argument, saves the downloaded files (with their original
@@ -686,17 +875,18 @@ class ZebraCURL {
      *
      *  ...and will unset the following options:
      *
+     *  - <b>CURLOPT_CUSTOMREQUEST</b>
      *  - <b>CURLOPT_HTTPGET</b>
      *  - <b>CURLOPT_NOBODY</b>
      *  - <b>CURLOPT_POST</b>
      *  - <b>CURLOPT_POSTFIELDS</b>
      *
-     *  Files are downloaded preserving their name so you may want to check that, if you are downloading more images
+     *  Files are downloaded preserving their name so you may want to check that, if you are downloading more files
      *  having the same name (either from the same, or from different servers)!
      *
      *  Multiple requests are processed asynchronously, in parallel, and the callback function is called for each and every
      *  request, as soon as a request finishes. The number of parallel requests to be constantly processed, at all times,
-     *  can be set through the {@link threads} property. See also the {@link $pause_interval pause_interval} property.
+     *  can be set through the {@link threads} property. See also the {@link pause_interval} property.
      *
      *  <i>Note that requests may not finish in the same order as initiated!</i>
      *
@@ -752,8 +942,8 @@ class ZebraCURL {
      *  @param  mixed   $callback           (Optional) Callback function to be called as soon as a request finishes.
      *
      *                                      May be given as a string representing a name of an existing function, as an
-     *                                      anonymous function created on the fly via {@link http://www.php.net/manual/ro/function.create-function.php
-     *                                      create_function} or, as of PHP 5.3.0, via a {@link http://www.php.net/manual/ro/function.create-function.php
+     *                                      anonymous function created on the fly via {@link http://www.php.net/manual/en/function.create-function.php
+     *                                      create_function} or via a {@link http://www.php.net/manual/en/function.create-function.php
      *                                      closure}.
      *
      *                                      The callback function receives as first argument <b>an object</b> with <b>4
@@ -762,7 +952,7 @@ class ZebraCURL {
      *
      *                                      -   <b>info</b>     -   an associative array containing information about the
      *                                                              request that just finished, as returned by PHP's
-     *                                                              {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo()}
+     *                                                              {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo}
      *                                                              function;
      *
      *                                      -   <b>headers</b>  -   an associative array with 2 items:
@@ -772,7 +962,7 @@ class ZebraCURL {
      *                                                              last request</i>; so, remember, if there are redirects
      *                                                              involved, there will be more requests made, but only
      *                                                              information from the last one will be available; if
-     *                                                              explicitly disabled via the {@link option()} method
+     *                                                              explicitly disabled via the {@link option} method
      *                                                              by setting <b>CURLINFO_HEADER_OUT</b> to 0 or FALSE,
      *                                                              this will be an empty string;
      *
@@ -793,7 +983,10 @@ class ZebraCURL {
      *                                                              {@link http://www.php.net/manual/en/function.curl-errno.php#103128 this list}
      *                                                              to see the possible values of this property;
      *
-     *  @return null
+     *  <samp>If the callback function returns FALSE  while {@link cache} is enabled, the library will not cache the
+     *  respective request, making it easy to retry failed requests without having to clear all cache.</samp>
+     *
+     *  @return void
      */
     public function ftp_download($urls, $path, $username = '', $password = '', $callback = '')
     {
@@ -806,7 +999,6 @@ class ZebraCURL {
 
             // add each URL and associated properties to the "_requests" property
             $this->_requests[] = array(
-                'type'              =>  'download',
                 'url'               =>  $url,
                 'path'              =>  rtrim($path, '/\\') . '/',
                 'options'           =>  array(
@@ -814,6 +1006,7 @@ class ZebraCURL {
                     CURLOPT_BINARYTRANSFER  =>  1,
                     CURLOPT_HEADER          =>  0,
                     CURLOPT_USERPWD         =>  $username != '' ? $username . ':' . $password : null,
+                    CURLOPT_CUSTOMREQUEST   =>  null,
                     CURLOPT_HTTPGET         =>  null,
                     CURLOPT_NOBODY          =>  null,
                     CURLOPT_POST            =>  null,
@@ -822,7 +1015,7 @@ class ZebraCURL {
                 'callback'          =>  $callback,
 
                 // additional arguments to pass to the callback function, if any
-                'arguments'         =>  array_slice($arguments, 5),
+                'arguments'         =>  array_slice(func_get_args(), 5),
 
             );
 
@@ -852,13 +1045,14 @@ class ZebraCURL {
      *  ...and will unset the following options:
      *
      *  - <b>CURLOPT_BINARYTRANSFER</b>
+     *  - <b>CURLOPT_CUSTOMREQUEST</b>
      *  - <b>CURLOPT_FILE</b>
      *  - <b>CURLOPT_POST</b>
      *  - <b>CURLOPT_POSTFIELDS</b>
      *
      *  Multiple requests are processed asynchronously, in parallel, and the callback function is called for each and every
      *  request, as soon as a request finishes. The number of parallel requests to be constantly processed, at all times,
-     *  can be set through the {@link threads} property. See also the {@link $pause_interval pause_interval} property.
+     *  can be set through the {@link threads} property. See also the {@link pause_interval} property.
      *
      *  <i>Note that requests may not finish in the same order as initiated!</i>
      *
@@ -912,8 +1106,8 @@ class ZebraCURL {
      *  @param  mixed   $callback   (Optional) Callback function to be called as soon as a request finishes.
      *
      *                              May be given as a string representing a name of an existing function, as an anonymous
-     *                              function created on the fly via {@link http://www.php.net/manual/ro/function.create-function.php
-     *                              create_function} or, as of PHP 5.3.0, via a {@link http://www.php.net/manual/ro/function.create-function.php
+     *                              function created on the fly via {@link http://www.php.net/manual/en/function.create-function.php
+     *                              create_function} or via a {@link http://www.php.net/manual/en/function.create-function.php
      *                              closure}.
      *
      *                              The callback function receives as first argument <b>an object</b> with <b>4 properties</b>
@@ -922,7 +1116,7 @@ class ZebraCURL {
      *
      *                              -   <b>info</b>     -   an associative array containing information about the request
      *                                                      that just finished, as returned by PHP's
-     *                                                      {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo()}
+     *                                                      {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo}
      *                                                      function;
      *
      *                              -   <b>headers</b>  -   an associative array with 2 items:
@@ -945,8 +1139,8 @@ class ZebraCURL {
      *
      *                                                      Unless disabled via the {@link __construct() constructor}, all
      *                                                      applicable characters will be converted to HTML entities via
-     *                                                      PHP's {@link http://php.net/manual/en/function.htmlentities.php htmlentities()}
-     *                                                      function, so remember to use PHP's {@link http://www.php.net/manual/en/function.html-entity-decode.php html_entity_decode()}
+     *                                                      PHP's {@link http://php.net/manual/en/function.htmlentities.php htmlentities}
+     *                                                      function, so remember to use PHP's {@link http://www.php.net/manual/en/function.html-entity-decode.php html_entity_decode}
      *                                                      function to do reverse this, if it's the case;
      *
      *                              -   <b>response</b> -   the response given by the cURL library as an array with 2
@@ -960,20 +1154,16 @@ class ZebraCURL {
      *  <samp>If the callback function returns FALSE  while {@link cache} is enabled, the library will not cache the
      *  respective request, making it easy to retry failed requests without having to clear all cache.</samp>
      *
-     *  @return null
+     *  @return void
      */
     public function get($urls, $callback = '')
     {
-
-        // prior to PHP 5.3, func_get_args() cannot be used as a function parameter, so we need this intermediary step
-        $arguments = func_get_args();
 
         // iterate through the list of URLs to process
         foreach ((array)$urls as $url)
 
             // add each URL and associated properties to the "_requests" property
             $this->_requests[] = array(
-                'type'              =>  'get',
                 'url'               =>  $url,
                 'options'           =>  array(
                     CURLINFO_HEADER_OUT     =>  1,
@@ -981,6 +1171,7 @@ class ZebraCURL {
                     CURLOPT_HTTPGET         =>  1,
                     CURLOPT_NOBODY          =>  0,
                     CURLOPT_BINARYTRANSFER  =>  null,
+                    CURLOPT_CUSTOMREQUEST   =>  null,
                     CURLOPT_FILE            =>  null,
                     CURLOPT_POST            =>  null,
                     CURLOPT_POSTFIELDS      =>  null,
@@ -988,7 +1179,7 @@ class ZebraCURL {
                 'callback'          =>  $callback,
 
                 // additional arguments to pass to the callback function, if any
-                'arguments'         =>  array_slice($arguments, 2),
+                'arguments'         =>  array_slice(func_get_args(), 2),
 
             );
 
@@ -1004,7 +1195,7 @@ class ZebraCURL {
     }
 
     /**
-     *  Works exactly like the {@link get()} method, the only difference being that this method will only return the
+     *  Works exactly like the {@link get} method, the only difference being that this method will only return the
      *  headers, without body.
      *
      *  This method will automatically set the following options:
@@ -1017,13 +1208,14 @@ class ZebraCURL {
      *  ...and will unset the following options:
      *
      *  - <b>CURLOPT_BINARYTRANSFER</b>
+     *  - <b>CURLOPT_CUSTOMREQUEST</b>
      *  - <b>CURLOPT_FILE</b>
      *  - <b>CURLOPT_POST</b>
      *  - <b>CURLOPT_POSTFIELDS</b>
      *
      *  Multiple requests are processed asynchronously, in parallel, and the callback function is called for each and every
      *  request, as soon as a request finishes. The number of parallel requests to be constantly processed, at all times,
-     *  can be set through the {@link threads} property. See also the {@link $pause_interval pause_interval} property.
+     *  can be set through the {@link threads} property. See also the {@link pause_interval} property.
      *
      *  <i>Note that requests may not finish in the same order as initiated!</i>
      *
@@ -1070,8 +1262,8 @@ class ZebraCURL {
      *  @param  mixed   $callback   (Optional) Callback function to be called as soon as a request finishes.
      *
      *                              May be given as a string representing a name of an existing function, as an anonymous
-     *                              function created on the fly via {@link http://www.php.net/manual/ro/function.create-function.php
-     *                              create_function} or, as of PHP 5.3.0, via a {@link http://www.php.net/manual/ro/function.create-function.php
+     *                              function created on the fly via {@link http://www.php.net/manual/en/function.create-function.php
+     *                              create_function} or via a {@link http://www.php.net/manual/en/function.create-function.php
      *                              closure}.
      *
      *                              The callback function receives as first argument <b>an object</b> with <b>4 properties</b>
@@ -1080,7 +1272,7 @@ class ZebraCURL {
      *
      *                              -   <b>info</b>     -   an associative array containing information about the request
      *                                                      that just finished, as returned by PHP's
-     *                                                      {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo()}
+     *                                                      {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo}
      *                                                      function;
      *
      *                              -   <b>headers</b>  -   an associative array with 2 items:
@@ -1111,20 +1303,16 @@ class ZebraCURL {
      *  <samp>If the callback function returns FALSE  while {@link cache} is enabled, the library will not cache the
      *  respective request, making it easy to retry failed requests without having to clear all cache.</samp>
      *
-     *  @return null
+     *  @return void
      */
     public function header($urls, $callback = '')
     {
-
-        // prior to PHP 5.3, func_get_args() cannot be used as a function parameter, so we need this intermediary step
-        $arguments = func_get_args();
 
         // iterate through the list of URLs to process
         foreach ($urls as $url)
 
             // add each URL and associated properties to the "_requests" property
             $this->_requests[] = array(
-                'type'              =>  'header',
                 'url'               =>  $url,
                 'options'           =>  array(
                     CURLINFO_HEADER_OUT     =>  1,
@@ -1132,6 +1320,7 @@ class ZebraCURL {
                     CURLOPT_HTTPGET         =>  1,
                     CURLOPT_NOBODY          =>  1,
                     CURLOPT_BINARYTRANSFER  =>  null,
+                    CURLOPT_CUSTOMREQUEST   =>  null,
                     CURLOPT_FILE            =>  null,
                     CURLOPT_POST            =>  null,
                     CURLOPT_POSTFIELDS      =>  null,
@@ -1139,7 +1328,7 @@ class ZebraCURL {
                 'callback'          =>  $callback,
 
                 // additional arguments to pass to the callback function, if any
-                'arguments'         =>  array_slice($arguments, 2),
+                'arguments'         =>  array_slice(func_get_args(), 2),
 
             );
 
@@ -1227,7 +1416,7 @@ class ZebraCURL {
      *
      *                                      Default is <b>CURLAUTH_ANY</b>.
      *
-     *  @return null
+     *  @return void
      */
     public function http_authentication($username = '', $password = '', $type = CURLAUTH_ANY)
     {
@@ -1274,7 +1463,7 @@ class ZebraCURL {
      *
      *                              <i>Setting a value to</i> <b>null</b> <i>will "unset" that option.</i>
      *
-     *  @return null
+     *  @return void
      *
      */
     public function option($option, $value = '')
@@ -1317,12 +1506,13 @@ class ZebraCURL {
      *  ...and will unset the following options:
      *
      *  - <b>CURLOPT_BINARYTRANSFER</b>
+     *  - <b>CURLOPT_CUSTOMREQUEST</b>
      *  - <b>CURLOPT_HTTPGET</b> - TRUE
      *  - <b>CURLOPT_FILE</b>
      *
      *  Multiple requests are processed asynchronously, in parallel, and the callback function is called for each and every
      *  request, as soon as a request finishes. The number of parallel requests to be constantly processed, at all times,
-     *  can be set through the {@link threads} property. See also the {@link $pause_interval pause_interval} property.
+     *  can be set through the {@link threads} property. See also the {@link pause_interval} property.
      *
      *  <i>Note that requests may not finish in the same order as initiated!</i>
      *
@@ -1381,7 +1571,7 @@ class ZebraCURL {
      *  @param  mixed   $urls       An associative array in the form of <i>url => post-data</i>, where "post-data" is an
      *                              associative array in the form of <i>name => value</i>.
      *
-     *                              "post-data" can also be an arbitrary string - useful for POST-ing JSON.
+     *                              "post-data" can also be an arbitrary string - useful if you want to send raw data (like a JSON)
      *
      *                              To post a file, prepend the filename with @ and use the full path. The file type can
      *                              be explicitly specified by following the filename with the type in the format <b>';type=mimetype'.</b>
@@ -1393,8 +1583,8 @@ class ZebraCURL {
      *  @param  mixed   $callback   (Optional) Callback function to be called as soon as a request finishes.
      *
      *                              May be given as a string representing a name of an existing function, as an anonymous
-     *                              function created on the fly via {@link http://www.php.net/manual/ro/function.create-function.php
-     *                              create_function} or, as of PHP 5.3.0, via a {@link http://www.php.net/manual/ro/function.create-function.php
+     *                              function created on the fly via {@link http://www.php.net/manual/en/function.create-function.php
+     *                              create_function} or via a {@link http://www.php.net/manual/en/function.create-function.php
      *                              closure}.
      *
      *                              The callback function receives as first argument <b>an object</b> with <b>4 properties</b>
@@ -1403,7 +1593,7 @@ class ZebraCURL {
      *
      *                              -   <b>info</b>     -   an associative array containing information about the request
      *                                                      that just finished, as returned by PHP's
-     *                                                      {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo()}
+     *                                                      {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo}
      *                                                      function;
      *
      *                              -   <b>headers</b>  -   an associative array with 2 items:
@@ -1412,13 +1602,13 @@ class ZebraCURL {
      *                                                      the request headers generated by <i>the last request</i>; so,
      *                                                      remember, if there are redirects involved, there will be more
      *                                                      requests made, but only information from the last one will be
-     *                                                      available; if explicitly disabled via the {@link option()}
+     *                                                      available; if explicitly disabled via the {@link option}
      *                                                      method by setting <b>CURLINFO_HEADER_OUT</b> to 0 or FALSE,
      *                                                      this will be an empty string;
      *
      *                                                      <b>- responses</b> an array with one or more entries (if there
      *                                                      are redirects involved) with the response headers of all the
-     *                                                      requests made; if explicitly disabled via the {@link option()}
+     *                                                      requests made; if explicitly disabled via the {@link option}
      *                                                      method by setting <b>CURLOPT_HEADER</b> to 0 or FALSE, this
      *                                                      will be an empty string;
      *
@@ -1430,11 +1620,11 @@ class ZebraCURL {
      *
      *                                                      Unless disabled via the {@link __construct() constructor}, all
      *                                                      applicable characters will be converted to HTML entities via
-     *                                                      PHP's {@link http://php.net/manual/en/function.htmlentities.php htmlentities()}
-     *                                                      function, so remember to use PHP's {@link http://www.php.net/manual/en/function.html-entity-decode.php html_entity_decode()}
+     *                                                      PHP's {@link http://php.net/manual/en/function.htmlentities.php htmlentities}
+     *                                                      function, so remember to use PHP's {@link http://www.php.net/manual/en/function.html-entity-decode.php html_entity_decode}
      *                                                      function to do reverse this, if it's the case;
      *
-     *                                                      If "body" is explicitly disabled via the {@link option()}
+     *                                                      If "body" is explicitly disabled via the {@link option}
      *                                                      method by setting <b>CURLOPT_NOBODY</b> to 0 or FALSE, this
      *                                                      will be an empty string;
      *
@@ -1449,7 +1639,7 @@ class ZebraCURL {
      *  <samp>If the callback function returns FALSE  while {@link cache} is enabled, the library will not cache the
      *  respective request, making it easy to retry failed requests without having to clear all cache.</samp>
      *
-     *  @return null
+     *  @return void
      */
     public function post($urls, $callback = '')
     {
@@ -1457,15 +1647,11 @@ class ZebraCURL {
         // if "urls" argument is not an array, trigger an error
         if (!is_array($urls)) trigger_error('First argument to "post" method must be an array!', E_USER_ERROR);
 
-        // prior to PHP 5.3, func_get_args() cannot be used as a function parameter, so we need this intermediary step
-        $arguments = func_get_args();
-
         // iterate through the list of URLs to process
         foreach ((array)$urls as $url => $values)
 
             // add each URL and associated properties to the "_requests" property
             $this->_requests[] = array(
-                'type'              =>  'post',
                 'url'               =>  $url,
                 'options'           =>  array(
                     CURLINFO_HEADER_OUT     =>  1,
@@ -1474,13 +1660,14 @@ class ZebraCURL {
                     CURLOPT_POST            =>  1,
                     CURLOPT_POSTFIELDS      =>  is_array($values) ? http_build_query($values, NULL, '&') : $values,
                     CURLOPT_BINARYTRANSFER  =>  null,
+                    CURLOPT_CUSTOMREQUEST   =>  null,
                     CURLOPT_HTTPGET         =>  null,
                     CURLOPT_FILE            =>  null,
                 ),
                 'callback'          =>  $callback,
 
                 // additional arguments to pass to the callback function, if any
-                'arguments'         =>  array_slice($arguments, 2),
+                'arguments'         =>  array_slice(func_get_args(), 2),
 
             );
 
@@ -1541,7 +1728,7 @@ class ZebraCURL {
      *
      *                                  Can be an URL or an IP address.
      *
-     *                                  <i>This option can also be set using the {@link option()} method and setting </i>
+     *                                  <i>This option can also be set using the {@link option} method and setting </i>
      *                                  <b>CURLOPT_PROXY</b> <i> option to the desired value</i>.
      *
      *                                  Setting this argument to FALSE will "unset" all the proxy-related options.
@@ -1550,7 +1737,7 @@ class ZebraCURL {
      *
      *                                  Default is 80.
      *
-     *                                  <i>This option can also be set using the {@link option()} method and setting </i>
+     *                                  <i>This option can also be set using the {@link option} method and setting </i>
      *                                  <b>CURLOPT_PROXYPORT</b> <i> option to the desired value</i>.
      *
      *  @param  string      $username   (Optional) The username to be used for the connection to the proxy (if required
@@ -1558,7 +1745,7 @@ class ZebraCURL {
      *
      *                                  Default is "" (an empty string)
      *
-     *                                  <i>The username and the password can also be set using the {@link option()} method
+     *                                  <i>The username and the password can also be set using the {@link option} method
      *                                  and setting </i> <b>CURLOPT_PROXYUSERPWD</b> <i> option to the desired value
      *                                  formatted like </i> <b>[username]:[password]</b>.     .
      *
@@ -1567,11 +1754,11 @@ class ZebraCURL {
      *
      *                                  Default is "" (an empty string)
      *
-     *                                  <i>The username and the password can also be set using the {@link option()} method
+     *                                  <i>The username and the password can also be set using the {@link option} method
      *                                  and setting </i> <b>CURLOPT_PROXYUSERPWD</b> <i> option to the desired value
      *                                  formatted like </i> <b>[username]:[password]</b>.     .
      *
-     *  @return null
+     *  @return void
      */
     public function proxy($proxy, $port = 80, $username = '', $password = '')
     {
@@ -1605,13 +1792,198 @@ class ZebraCURL {
     }
 
     /**
+     *  Performs an HTTP <b>PUT</b> request to one or more URLs with the POST data as specified by the <i>$urls</i> argument,
+     *  and executes the callback function specified by the <i>$callback</i> argument for each and every request, as soon
+     *  as a request finishes.
+     *
+     *  This method will automatically set the following options:
+     *
+     *  - <b>CURLINFO_HEADER_OUT</b> - TRUE
+     *  - <b>CURLOPT_CUSTOMREQUEST</b> - "PUT"
+     *  - <b>CURLOPT_HEADER</b> - TRUE
+     *  - <b>CURLOPT_NOBODY</b> - FALSE
+     *  - <b>CURLOPT_POST</b> - FALSE
+     *  - <b>CURLOPT_POSTFIELDS</b> - the POST data
+     *
+     *  ...and will unset the following options:
+     *
+     *  - <b>CURLOPT_BINARYTRANSFER</b>
+     *  - <b>CURLOPT_HTTPGET</b> - TRUE
+     *  - <b>CURLOPT_FILE</b>
+     *
+     *  Multiple requests are processed asynchronously, in parallel, and the callback function is called for each and every
+     *  request, as soon as a request finishes. The number of parallel requests to be constantly processed, at all times,
+     *  can be set through the {@link threads} property. See also the {@link pause_interval} property.
+     *
+     *  <i>Note that requests may not finish in the same order as initiated!</i>
+     *
+     *  <code>
+     *  // the callback function to be executed for each and every
+     *  // request, as soon as a request finishes
+     *  // the callback function receives as argument an object with 4 properties
+     *  // (info, header, body and response)
+     *  function mycallback($result) {
+     *
+     *      // everything went well at cURL level
+     *      if ($result->response[1] == CURLE_OK) {
+     *
+     *          // if server responded with code 200 (meaning that everything went well)
+     *          // see http://httpstatus.es/ for a list of possible response codes
+     *          if ($result->info['http_code'] == 200) {
+     *
+     *              // see all the returned data
+     *              print_r('<pre>');
+     *              print_r($result);
+     *
+     *          // show the server's response code
+     *          } else die('Server responded with code ' . $result->info['http_code']);
+     *
+     *      // something went wrong
+     *      // ($result still contains all data that could be gathered)
+     *      } else die('cURL responded with: ' . $result->response[0]);
+     *
+     *  }
+     *
+     *  // include the Zebra_cURL library
+     *  require 'path/to/Zebra_cURL';
+     *
+     *  // instantiate the Zebra_cURL object
+     *  $curl = new Zebra_cURL();
+     *
+     *  // do a PUT and execute the "mycallback" function for each
+     *  // request, as soon as it finishes
+     *  $curl->put(array(
+     *      'http://www.somewebsite.com'  =>  array(
+     *          'data_1'  =>  'value 1',
+     *          'data_2'  =>  'value 2',
+     *      ),
+     *  ), 'mycallback');
+     *  </code>
+     *
+     *  @param  mixed   $urls       An associative array in the form of <i>url => put-data</i>, where "put-data" is an
+     *                              associative array in the form of <i>name => value</i>.
+     *
+     *                              "put-data" can also be an arbitrary string - useful if you want to send raw data (like a JSON)
+     *
+     *                              To put a file, prepend the filename with @ and use the full path. The file type can
+     *                              be explicitly specified by following the filename with the type in the format <b>';type=mimetype'.</b>
+     *                              You should always specify the mime type as most of the times cURL will send the wrong
+     *                              mime type...
+     *
+     *                              The <i>Content-Type</i> header will be set to <b>multipart/form-data.</b>
+     *
+     *  @param  mixed   $callback   (Optional) Callback function to be called as soon as a request finishes.
+     *
+     *                              May be given as a string representing a name of an existing function, as an anonymous
+     *                              function created on the fly via {@link http://www.php.net/manual/en/function.create-function.php
+     *                              create_function} or via a {@link http://www.php.net/manual/en/function.create-function.php
+     *                              closure}.
+     *
+     *                              The callback function receives as first argument <b>an object</b> with <b>4 properties</b>
+     *                              as described below, while any further arguments passed to the {@link put} method
+     *                              will be passed as extra arguments to the callback function:
+     *
+     *                              -   <b>info</b>     -   an associative array containing information about the request
+     *                                                      that just finished, as returned by PHP's
+     *                                                      {@link http://php.net/manual/en/function.curl-getinfo.php curl_getinfo}
+     *                                                      function;
+     *
+     *                              -   <b>headers</b>  -   an associative array with 2 items:
+     *
+     *                                                      <b>- last_request</b> an array with a single entry containing
+     *                                                      the request headers generated by <i>the last request</i>; so,
+     *                                                      remember, if there are redirects involved, there will be more
+     *                                                      requests made, but only information from the last one will be
+     *                                                      available; if explicitly disabled via the {@link option}
+     *                                                      method by setting <b>CURLINFO_HEADER_OUT</b> to 0 or FALSE,
+     *                                                      this will be an empty string;
+     *
+     *                                                      <b>- responses</b> an array with one or more entries (if there
+     *                                                      are redirects involved) with the response headers of all the
+     *                                                      requests made; if explicitly disabled via the {@link option}
+     *                                                      method by setting <b>CURLOPT_HEADER</b> to 0 or FALSE, this
+     *                                                      will be an empty string;
+     *
+     *                                                      <i>Unless disabled, each entry in the headers' array is an
+     *                                                      associative array in the form of property => value</i>
+     *
+     *                              -   <b>body</b> -       the response of the request (the content of the page at the
+     *                                                      URL).
+     *
+     *                                                      Unless disabled via the {@link __construct() constructor}, all
+     *                                                      applicable characters will be converted to HTML entities via
+     *                                                      PHP's {@link http://php.net/manual/en/function.htmlentities.php htmlentities}
+     *                                                      function, so remember to use PHP's {@link http://www.php.net/manual/en/function.html-entity-decode.php html_entity_decode}
+     *                                                      function to do reverse this, if it's the case;
+     *
+     *                                                      If "body" is explicitly disabled via the {@link option}
+     *                                                      method by setting <b>CURLOPT_NOBODY</b> to 0 or FALSE, this
+     *                                                      will be an empty string;
+     *
+     *                              -   <b>response</b> -   the response given by the cURL library as an array with 2
+     *                                                      entries: the first entry is the textual representation of the
+     *                                                      result's code, while second is the result's code itself; if
+     *                                                      the request was successful, these values will be
+     *                                                      <i>array(CURLE_OK, 0);</i> consult
+     *                                                      {@link http://www.php.net/manual/en/function.curl-errno.php#103128 this list}
+     *                                                      to see the possible values of this property;
+     *
+     *  <samp>If the callback function returns FALSE  while {@link cache} is enabled, the library will not cache the
+     *  respective request, making it easy to retry failed requests without having to clear all cache.</samp>
+     *
+     *  @since 1.3.3
+     *
+     *  @return void
+     */
+    public function put($urls, $callback = '')
+    {
+
+        // if "urls" argument is not an array, trigger an error
+        if (!is_array($urls)) trigger_error('First argument to "put" method must be an array!', E_USER_ERROR);
+
+        // iterate through the list of URLs to process
+        foreach ((array)$urls as $url => $values)
+
+            // add each URL and associated properties to the "_requests" property
+            $this->_requests[] = array(
+                'url'               =>  $url,
+                'options'           =>  array(
+                    CURLINFO_HEADER_OUT     =>  1,
+                    CURLOPT_CUSTOMREQUEST   =>  'PUT',
+                    CURLOPT_HEADER          =>  1,
+                    CURLOPT_NOBODY          =>  0,
+                    CURLOPT_POST            =>  0,
+                    CURLOPT_POSTFIELDS      =>  is_array($values) ? http_build_query($values, NULL, '&') : $values,
+                    CURLOPT_BINARYTRANSFER  =>  null,
+                    CURLOPT_HTTPGET         =>  null,
+                    CURLOPT_FILE            =>  null,
+                ),
+                'callback'          =>  $callback,
+
+                // additional arguments to pass to the callback function, if any
+                'arguments'         =>  array_slice(func_get_args(), 2),
+
+            );
+
+        // if we're just queuing requests for now, do not execute the next lines
+        if ($this->_queue) return;
+
+        // if we have to pause between batches of requests, process them sequentially, in batches
+        if ($this->pause_interval > 0) $this->_process_paused();
+
+        // if we don't have to pause between batches of requests, process them all at once
+        else $this->_process();
+
+    }
+
+    /**
      *  Instructs the library to queue requests rather than processing them right away. Useful for grouping different
      *  types of requests and treat them as a single request.
      *
-     *  Until {@link start() start} method is called, all calls to {@link download() download}, {@link ftp_download ftp_download},
-     *  {@link get() get}, {@link header() header} and {@link post() post} methods will queue up rather than being
-     *  executed right away. Once the {@link start() start} method is called, all queued requests will be processed while
-     *  values of {@link $threads threads} and {@link $pause_interval pause_interval} properties will still apply.
+     *  Until {@link start} method is called, all calls to {@link delete}, {@link download}, {@link ftp_download},
+     *  {@link get}, {@link header}, {@link post} and {@link put} methods will queue up rather than being executed right
+     *  away. Once the {@link start} method is called, all queued requests will be processed while values of
+     *  {@link threads} and {@link pause_interval} properties will still apply.
      *
      *  <code>
      *  // the callback function to be executed for each and every
@@ -1675,13 +2047,71 @@ class ZebraCURL {
      *
      *  @since 1.3.0
      *
-     *  @return null
+     *  @return void
      */
     public function queue()
     {
 
         // set a flag indicating the library to queue requests rather than executing them right away
         $this->_queue = true;
+
+    }
+
+    /**
+     *  A shorthand for making a single {@link get} request without the need of a callback function
+     *
+     *  <code>
+     *  // include the Zebra_cURL library
+     *  require 'path/to/Zebra_cURL';
+     *
+     *  // instantiate the class
+     *  $curl = new Zebra_cURL();
+     *
+     *  // get page's content only
+     *  $content = $curl->get('https://www.somewebsite.com/', true);
+     *
+     *  // print that to screen
+     *  echo $content;
+     *
+     *  // get everything we can about the page
+     *  $content = $curl->get('https://www.somewebsite.com/');
+     *
+     *  // print that to screen
+     *  print_r('<pre>');
+     *  print_r($content);
+     *  </code>
+     *
+     *  @param  string      $url        An URL to fetch
+     *
+     *  @param  boolean     $body_only  (Optional) When set to TRUE, will instruct the method to return <i>only</i>
+     *                                  the page's content, without info, headers, responses, etc.
+     *
+     *                                  When set to FALSE, will instruct the method to return everything it can about the
+     *                                  scrapped page, as an object with properties as described for the <i>$callback</i>
+     *                                  argument of the {@link get} method.
+     *
+     *                                  Default is FALSE.
+     *
+     *  @since 1.3.3
+     *
+     *  @return mixed   Returns the scrapped page's content, when <i>$body_only</i> is set to TRUE, or an object with
+     *                  properties as described for the <i>$callback</i> argument of the {@link get} method.
+     */
+    function scrap($url, $body_only = false) {
+
+        // this method requires the $url argument to be a string
+        if (is_array($url)) trigger_error('URL must be a string', E_USER_ERROR);
+
+        // make the request
+        $this->get($url, function($result) {
+
+            // store result in this private property of the library
+            $this->_scrap_result = $result;
+
+        });
+
+        // return result
+        return $body_only ? $this->_scrap_result->body : $this->_scrap_result;
 
     }
 
@@ -1707,9 +2137,9 @@ class ZebraCURL {
      *
      *  @param  boolean     $verify_peer        (Optional) Should the peer's certificate be verified by cURL?
      *
-     *                                          Default is FALSE.
+     *                                          Default is TRUE.
      *
-     *                                          <i>This option can also be set using the {@link option()} method and
+     *                                          <i>This option can also be set using the {@link option} method and
      *                                          setting </i> <b>CURLOPT_SSL_VERIFYPEER</b> <i> option to the desired value</i>.
      *
      *  @param  integer     $verify_host        (Optional) Specifies whether or not to check the existence of a common
@@ -1725,7 +2155,7 @@ class ZebraCURL {
      *
      *                                          <samp>Support for value 1 removed in cURL 7.28.1</samp>
      *
-     *                                          <i>This option can also be set using the {@link option()} method and
+     *                                          <i>This option can also be set using the {@link option} method and
      *                                          setting </i> <b>CURLOPT_SSL_VERIFYHOST</b> <i> option to the desired value</i>.
      *
      *  @param  mixed       $file               (Optional) An absolute path to a file holding one or more certificates to
@@ -1734,7 +2164,7 @@ class ZebraCURL {
      *
      *                                          Default is FALSE.
      *
-     *                                          <i>This option can also be set using the {@link option()} method and
+     *                                          <i>This option can also be set using the {@link option} method and
      *                                          setting </i> <b>CURLOPT_CAINFO</b> <i> option to the desired value</i>.
      *
      *  @param  mixed       $path               (Optional) An absolute path to a directory that holds multiple CA
@@ -1743,12 +2173,12 @@ class ZebraCURL {
      *
      *                                          Default is FALSE.
      *
-     *                                          <i>This option can also be set using the {@link option()} method and
+     *                                          <i>This option can also be set using the {@link option} method and
      *                                          setting </i> <b>CURLOPT_CAPATH</b> <i> option to the desired value</i>.
      *
-     *  @return null
+     *  @return void
      */
-    public function ssl($verify_peer = false, $verify_host = 2, $file = false, $path = false)
+    public function ssl($verify_peer = true, $verify_host = 2, $file = false, $path = false)
     {
 
         // set default options
@@ -1780,11 +2210,11 @@ class ZebraCURL {
     /**
      *  Executes queued requests.
      *
-     *  See {@link queue() queue} method for more information.
+     *  See {@link queue} method for more information.
      *
      *  @since 1.3.0
      *
-     *  @return null
+     *  @return void
      */
     public function start() {
 
@@ -1903,7 +2333,7 @@ class ZebraCURL {
     /**
      *  Does the actual work.
      *
-     *  @return null
+     *  @return void
      *
      *  @access private
      */
@@ -2149,10 +2579,10 @@ class ZebraCURL {
     }
 
     /**
-     *  A wrapper for the {@link _process() _process} method used when we need to pause between batches of requests to
+     *  A wrapper for the {@link _process} method used when we need to pause between batches of requests to
      *  process.
      *
-     *  @return null
+     *  @return void
      *
      *  @access private
      */
@@ -2178,11 +2608,11 @@ class ZebraCURL {
     }
 
     /**
-     *  A helper method used by the {@link _process()} method, taking care of keeping a constant number of requests
+     *  A helper method used by the {@link _process} method, taking care of keeping a constant number of requests
      *  queued, so that as soon as one request finishes another one will instantly take its place, thus making sure that
      *  the maximum allowed number of parallel threads are running all the time.
      *
-     *  @return null
+     *  @return void
      *
      *  @access private
      */
@@ -2207,8 +2637,12 @@ class ZebraCURL {
             // if we're downloading something
             if (isset($request['options'][CURLOPT_BINARYTRANSFER]) && $request['options'][CURLOPT_BINARYTRANSFER]) {
 
+                // use parse_url to analyze the string
+                // we use this so we won't have hashtags and/or query string in the file's name later on
+                $parsed = parse_url($request['url']);
+
                 // open a file and save the file pointer
-                $request['file_handler'] = fopen($request['path'] . basename($request['url']), 'w+');
+                $request['file_handler'] = fopen($request['path'] . basename($parsed['path']), 'w+');
 
                 // tell libcurl to use the file for streaming the download
                 $this->option(CURLOPT_FILE, $request['file_handler']);
@@ -2254,7 +2688,7 @@ class ZebraCURL {
      *
      *  Some web services will not respond unless a valid user-agent string is provided.
      *
-     *  @return null
+     *  @return void
      *
      *  @access private
      */
