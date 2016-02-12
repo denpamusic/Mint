@@ -3,5 +3,18 @@ php:
   - '5.5'
   - '5.6'
   - '7.0'
-  - hhvm
-  - nightly
+
+before_script:
+  - mv .env.travis .env
+  - mysql -e 'create database mint;'
+  - composer self-update
+  - composer install --dev --prefer-source --no-interaction -vvv
+  - php artisan migrate:install --env=testing --no-interaction -vvv
+
+script:
+  - php artisan migrate --env=testing --no-interaction -vvv
+  - php artisan db:seed --env=testing --no-interaction -vvv
+  - php artisan migrate:rollback --env=testing --no-interaction -vvv
+
+matrix:
+  fast_finish: true
