@@ -4,11 +4,11 @@ namespace Mint\Console\Commands;
 
 use Mint;
 
+use Request;
+use Route;
+use Log;
+
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Request;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 
 class ApiCallback extends Command
 {
@@ -69,7 +69,7 @@ class ApiCallback extends Command
 
 		/* Release lock after finishing execution */
 		flock($fp, LOCK_UN);
-		fclose($fp);
 		unlink( storage_path('locks/mint-' . $txid . '.lock') );
+		fclose($fp);
     }
 }

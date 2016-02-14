@@ -3,10 +3,11 @@
 namespace Mint\Console\Commands;
 
 use Mint;
+use Request;
+use Route;
+use Log;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Request;
-use Illuminate\Support\Facades\Route;
 
 class ApiBlocknotify extends Command
 {

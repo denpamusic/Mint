@@ -3,7 +3,6 @@
 namespace Mint;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
 
 class Transaction extends Model
 {

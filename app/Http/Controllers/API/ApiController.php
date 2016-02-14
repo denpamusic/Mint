@@ -4,20 +4,19 @@ namespace Mint\Http\Controllers\API;
 
 use Mint;
 use Mint\Libraries\BitcoinConverter as Converter;
-use Mint\Libraries\ZebraCURL;
 use Mint\Libraries\JsonRPCClient;
 use Mint\Exceptions\JsonException;
 
 use Illuminate\Routing\Controller;
 
-use Illuminate\Support\Facades\View;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\DB;
-
-use Webpatser\Uuid\Uuid;
+use View;
+use Log;
+use Response;
+use Input;
+use Route;
+use DB;
+use Uuid;
+use cURL;
 
 class ApiController extends Controller
 {
@@ -32,7 +31,7 @@ class ApiController extends Controller
 	 * @param  ZebraCURL      $curl
      * @return void
      */
-	public function __construct(jsonRPCClient $bitcoin_core, ZebraCURL $curl)
+	public function __construct(jsonRPCClient $bitcoin_core, cURL $curl)
 	{
 		$this->curl = $curl;
 		$this->bitcoin_core = $bitcoin_core;
@@ -155,7 +154,7 @@ class ApiController extends Controller
 		}
 
 		$is_valid = (bool)$this->isValidAddress($address);
-		$is_mine = (bool)$this->isUserAddress($address);
+		$is_mine  = (bool)$this->isUserAddress($address);
 
 		return Response::json([
 			'is_valid' => $is_valid,
