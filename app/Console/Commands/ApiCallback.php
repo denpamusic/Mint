@@ -69,7 +69,8 @@ class ApiCallback extends Command
 
 		/* Release lock after finishing execution */
 		flock($fp, LOCK_UN);
-		unlink( storage_path('locks/mint-' . $txid . '.lock') );
 		fclose($fp);
+
+		unlink( storage_path('locks/mint-' . $txid . '.lock') );
     }
 }
