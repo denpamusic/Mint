@@ -29,14 +29,13 @@ class CreateTransactionsTable extends Migration
 			$table->integer('tx_time')->default(0);
 			$table->integer('tx_timereceived')->default(0);
 			$table->string('tx_category', 24)->nullable();
-			$table->string('address_account', 100)->nullable();
 			$table->integer('network_fee')->nullable();
 			$table->integer('merchant_fee')->nullable();
 			$table->bigInteger('address_balance')->default(0);
 			$table->bigInteger('user_balance')->default(0);
 			$table->decimal('bitcoind_balance', 16, 8)->nullable();
 			$table->text('note')->nullable();
-			$table->string('transaction_type', 25);
+			$table->string('transaction_type', 24);
             $table->timestamps();
         });
 

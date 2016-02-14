@@ -473,7 +473,6 @@ class ApiController extends Controller
 
 		foreach ($transaction_details as $tx)
 		{
-			$account_name  = $tx['account'];
 			$category      = $tx['category'];
 			$amount        = Converter::btc( $tx["amount"] );
 			$address_from  = ($amount->btc < 0) ? $tx['account'] : $addresses[0];
@@ -509,7 +508,6 @@ class ApiController extends Controller
 				'tx_time'           => $time,
 				'tx_timereceived'   => $time_received,
 				'tx_category'       => $category,
-				'address_account'   => $account_name,
 			];
 
 			$ret = ($category == 'send') ?
@@ -839,7 +837,7 @@ class ApiController extends Controller
 						'address_balance'  => $address_model->balance,
 						'bitcoind_balance' => $this->bitcoin_core->getbalance(),
 						'note'             => $note,
-						'transaction_type' => 'internal-' . $type,
+						'transaction_type' => 'internal',
 					];
 
 					$transaction_model = Mint\Transaction::insertNewTransaction($common_data);

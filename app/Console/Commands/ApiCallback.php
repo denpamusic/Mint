@@ -4,8 +4,6 @@ namespace Mint\Console\Commands;
 
 use Mint;
 
-use Mint\Lock;
-
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Route;

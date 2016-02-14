@@ -12,7 +12,7 @@ class Transaction extends Model
 	protected $fillable = [
 		'tx_id', 'user_id', 'crypto_type_id', 'address_to', 'address_from', 'crypto_amount', 'confirmations', 'response_callback',
 		'block_hash', 'block_index', 'block_time', 'tx_time', 'tx_timereceived', 'tx_category', 'balance', 'bitcoind_balance',
-		'note', 'transaction_type', 'user_balance', 'network_fee'
+		'note', 'transaction_type', 'user_balance', 'network_fee', 'merchant_fee'
 	];
 
 	public static function getTransactionByTxId($txId) {
