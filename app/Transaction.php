@@ -3,6 +3,7 @@
 namespace Mint;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 class Transaction extends Model
 {
@@ -18,8 +19,8 @@ class Transaction extends Model
 		return self::where('tx_id', $txId)->lockForUpdate()->first();
 	}
 
-	public static function getTransactionByTxIdAndAddress($txId, $address) {
-		return self::where('tx_id', $txId)->where('address_to', $address)->lockForUpdate()->first();
+	public static function getTransactionByTxIdAndCategory($txId, $category) {
+		return self::where('tx_id', $txId)->where('tx_category', $category)->first();
 	}
 
 	public static function getTransactionByMinimumConfirms($min_confirmations) {

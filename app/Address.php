@@ -11,7 +11,7 @@ class Address extends Model
 
 	public static function getAddress($address)
 	{
-		return self::where('address', $address)->first();
+		return self::where('address', $address)->lockForUpdate()->first();
 	}
 
 	public static function insertNewAddress($address_data)

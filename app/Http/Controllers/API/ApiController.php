@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 
+use Webpatser\Uuid\Uuid;
+
 class ApiController extends Controller
 {
 	protected $user;
@@ -170,7 +172,7 @@ class ApiController extends Controller
 	public function newAddress()
 	{
 		/* Get input variables */
-		$label = Input::get('label');
+		$label = Input::get('label') ? Input::get('label') : '';
 
 		$address = $this->getAddress($label);
 		return Response::json( ['address' => $address, 'label' => $label] );
@@ -434,8 +436,6 @@ class ApiController extends Controller
 	{
 		$api_key = Mint\Settings::getVal('api_key');
 
-		DB::beginTransaction();
-
 		if ( $api_key != Input::get('key') ) {
 			throw new JsonException( trans('error.invalidkey') );
 		}
@@ -457,9 +457,8 @@ class ApiController extends Controller
 		$time          = $tx_info['time'];
 		$time_received = $tx_info['timereceived'];
 		$network_fee   = isset($tx_info['fee']) ? abs( Converter::btc($tx_info['fee'])->satoshi ) : null;
-		$merchant_fee  = Mint\Settings::getVal('merchant_fee');
+		$merchant_fee  = (float)Mint\Settings::getVal('merchant_fee');
 		$merchant_fee  = Converter::btc($merchant_fee)->satoshi;
-
 
 		$transaction_details = $tx_info["details"];
 
@@ -493,7 +492,7 @@ class ApiController extends Controller
 
 			Log::info( "Address $address_to, amount (BTC): " . $amount->btc . ", confirms: $confirms received transaction id $tx_id" );
 
-			$transaction_model = Mint\Transaction::getTransactionByTxIdAndAddress( $tx_id, $address_to );
+			$transaction_model = Mint\Transaction::getTransactionByTxIdAndCategory( $tx_id, $category );
 
 			$common_data = [
 				'tx_id'             => $tx_id,
@@ -513,13 +512,9 @@ class ApiController extends Controller
 				'address_account'   => $account_name,
 			];
 
-			if ( $amount->btc < 0 ) {
-				$this->processOutgoingTransaction($transaction_model, $address_model, $common_data, $amount);
-			} else {
+			$ret = ($category == 'send') ?
+				$this->processOutgoingTransaction($transaction_model, $address_model, $common_data, $amount) :
 				$this->processIncomingTransaction($transaction_model, $address_model, $common_data, $amount);
-			}
-
-			DB::commit();
 		}
 
 		return '*ok*';
@@ -532,10 +527,10 @@ class ApiController extends Controller
      */
 	private function processOutgoingTransaction($transaction_model, $address_model, $common_data, Converter $amount)
 	{
-		if( !$transaction_model ) {
+		if(!$transaction_model) {
 			$address_model = Mint\Address::getAddress( $common_data['address_from'] );
 
-			$real_amount = $this->bcsum( abs( $amount->satoshi ), $common_data['network_fee'] );
+			$real_amount = bcadd( abs( $amount->satoshi ), $common_data['network_fee'] );
 
 			$balance_model = Mint\Balance::updateUserBalance($this->user, -$real_amount);
 			$address_model = Mint\Address::updateAddressBalance($address_model, -$real_amount);
@@ -550,6 +545,8 @@ class ApiController extends Controller
 			if( !empty($this->user->callback_url) ) {
 				$this->fetchUrl($this->user->callback_url, $common_data, $transaction_model);
 			}
+		} else {
+			die();
 		}
 	}
 
@@ -560,7 +557,7 @@ class ApiController extends Controller
      */
 	private function processIncomingTransaction($transaction_model, $address_model, $common_data, $amount)
 	{
-		if ( !$transaction_model ) {
+		if (!$transaction_model) {
 			$balance_model = Mint\Balance::updateUserBalance($this->user, $amount->satoshi);
 			$address_model = Mint\Address::updateAddressBalance($address_model, $amount->satoshi);
 
@@ -605,8 +602,6 @@ class ApiController extends Controller
      */
 	public function blocknotify()
 	{
-		DB::beginTransaction();
-
 		$key       = Input::get('key');
 		$blockhash = Input::get('blockhash');
 
@@ -644,8 +639,6 @@ class ApiController extends Controller
 
 			Mint\Transaction::updateTxConfirmation($transaction_model, $common_data);
 		}
-
-		DB::commit();
 		return '*ok*';
 	}
 
@@ -694,7 +687,7 @@ class ApiController extends Controller
 		if( Mint\Settings::getVal('callback_method') == 'post' ) {
 			$this->curl->post([ $url => $data ], [$this, 'processResponse'], $transaction_model, $common_data);
 		} else {
-			$query = $url . '?' . http_build_query($data); /* $ This is exactly 666 line $ */
+			$query = $url . '?' . http_build_query($data);
 			$this->curl->get($query, [$this, 'processResponse'], $transaction_model, $common_data);
 		}
 	}
@@ -712,12 +705,14 @@ class ApiController extends Controller
 				$app_response = preg_replace("/^$bom/", '', $result->body);
 				$callback_status = ( $app_response == '*ok*' ) ? 1 : 0;
 
-				Mint\Transaction::updateTxConfirmation($transaction_model, $common_data);
-				Mint\Transaction::updateTxOnAppResponse($transaction_model,
-					$app_response,
-					$result->info['url'],
-					$callback_status
-				);
+				if($transaction_model) {
+					Mint\Transaction::updateTxConfirmation($transaction_model, $common_data);
+					Mint\Transaction::updateTxOnAppResponse($transaction_model,
+						$app_response,
+						$result->info['url'],
+						$callback_status
+					);
+				}
 			}
 		}
 	}
@@ -768,7 +763,7 @@ class ApiController extends Controller
 			throw new JsonException( trans('error.nofunds') );
 		}
 
-		/* Pay merchant fee  if any and subtract it from the payment amount */
+		/* Pay merchant fee if any */
 		if($merchant_fee->satoshi > 0) {
 			$fee_address = $this->getFeeAddress();
 
@@ -781,8 +776,6 @@ class ApiController extends Controller
 				Converter::btc(0), /* merchant_fee */
 				'move'             /* method       */
 			);
-
-			$amount = Converter::btc( bcsub($amount->btc, $merchant_fee->btc, 8) );
 		}
 
 		try {
@@ -799,11 +792,13 @@ class ApiController extends Controller
 				$tx_id  = 0;
 				$tx_fee = Converter::btc(0);
 
-				$send_amount = Converter::btc( $this->bcsum($amount->btc, $merchant_fee->btc) );
+				$send_amount = Converter::satoshi( bcadd($amount->satoshi, $merchant_fee->satoshi) );
+
+				DB::beginTransaction();
 
 				/* Update every balance, because we won't be getting callback on move */
 				Mint\Address::updateAddressBalance($from_address_model, -$send_amount->satoshi);
-				$address_model = Mint\Address::updateAddressBalance($to_address_model, $amount->satoshi);
+				$address_model = Mint\Address::updateAddressBalance($to_address_model, $send_amount->satoshi);
 
 				switch(true) {
 					case $to_address_model->address == $this->getFeeAddress():
@@ -813,7 +808,7 @@ class ApiController extends Controller
 						break;
 					case $from_address_model->address == $this->getFeeAddress():
 						/* Update user balance if this transaction is fee */
-						$user_balance = Mint\Balance::updateUserBalance($this->user, $amount->satoshi);
+						$user_balance = Mint\Balance::updateUserBalance($this->user, $send_amount->satoshi);
 						$types = ['receive'];
 						break;
 					default:
@@ -822,9 +817,14 @@ class ApiController extends Controller
 						break;
 				}
 
+				DB::commit();
+
+				list($usecs, $secs) = explode( ' ', microtime() );
+				$txid = $this->getInternalTxId($from_address_model->address, $to_address_model->address, $amount->satoshi, (double)$secs + (double)$usecs);
+
 				foreach($types as $type) {
 					$common_data = [
-						'tx_id'            => '0000000000000000000000000000000000000000000000000000000000000000',
+						'tx_id'            => $txid,
 						'user_id'          => $this->user->id,
 						'address_from'     => $from_address_model->address,
 						'address_to'       => $to_address_model->address,
@@ -832,8 +832,9 @@ class ApiController extends Controller
 						'confirmations'    => Mint\Settings::getVal('min_confirmations'),
 						'network_fee'      => 0,
 						'merchant_fee'     => $merchant_fee->satoshi,
-						'tx_time'          => time(),
-						'tx_timereceived'  => time(),
+						'tx_time'          => (int)$secs,
+						'tx_timereceived'  => (int)$secs,
+						'tx_category'      => $type,
 						'user_balance'     => $user_balance->balance,
 						'address_balance'  => $address_model->balance,
 						'bitcoind_balance' => $this->bitcoin_core->getbalance(),
@@ -879,6 +880,23 @@ class ApiController extends Controller
 			'to_address'   => $to_address,
 			'is_internal'  => ($tx_id === 0),
 		];
+	}
+
+	/**
+     * Create new internal txid(starts with "-") based on two addresses time and sum.
+     *
+     * @return string
+     */
+	private function getInternalTxId($address_to, $address_from, $amount, $microtime) {
+		$ns = "$address_to.$address_from.$amount.$microtime";
+
+		$uuid = Uuid::generate(5, $ns, Uuid::NS_DNS);
+		$txid = (string)hash('sha256', $uuid);
+
+		/* Replace first character of string with "-", to mark this transaction as internal */
+		$txid[0] = '-';
+
+		return $txid;
 	}
 
 

@@ -41,6 +41,8 @@ class ApiBlocknotify extends Command
      */
     public function handle()
     {
+		Log::info( 'Blocknotify(blockhash: ' . $this->argument('blockhash') . ', pid:' . (int)getmypid() . '): Running...' );
+
 		$request = Request::create('/api/blocknotify', 'GET', [
 				'key' => Mint\Settings::getVal('api_key'),
 				'blockhash' => $this->argument('blockhash'),
